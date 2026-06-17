@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --nc-navy:     #002044;
+  --nc-navymd:   #1c3d5e;
+  --nc-cyan:     #4eaac4;
+  --nc-light:    #f0f4fa;
+  --nc-purple:   #443880;
+}
+
+body {
+  @apply bg-nc-light text-gray-900 antialiased;
+}
+
+/* Scrollbar discrète dans la sidebar */
+.nc-sidebar::-webkit-scrollbar { width: 4px; }
+.nc-sidebar::-webkit-scrollbar-track { background: transparent; }
+.nc-sidebar::-webkit-scrollbar-thumb { @apply bg-nc-navymd rounded-full; }

@@ -1,0 +1,483 @@
+# ============================================================
+# compose.yml – ERP NOVACAMPUS ALLIANCE – VERSION FINALE COMPLÈTE
+#
+# Services inclus :
+#   – auth-postgres           : DB PostgreSQL du service auth
+#   – auth-service            : authentification JWT TypeScript/Express
+#   – academic-postgres       : DB PostgreSQL du service académique
+#   – academic-service        : cours, notes, absences, deadlines, ressources
+#   – planning-postgres       : DB PostgreSQL du service planning
+#   – planning-service        : emplois du temps, salles, séances
+#   – inscription-postgres    : DB PostgreSQL du service inscription
+#   – inscription-service     : dossiers étudiants/professeurs
+#   – payment-postgres        : DB PostgreSQL du service paiement
+#   – payment-service         : factures, relances, KPIs financiers
+#   – notification-postgres   : DB PostgreSQL du service notification
+#   – notification-service    : push, email, WebSocket temps réel
+#   – campus-postgres         : DB PostgreSQL du service campus
+#   – campus-service          : campus, années académiques, audit, config
+#   – reporting-postgres      : DB PostgreSQL du service reporting
+#   – reporting-service       : KPIs consolidés, dashboards, agent IA
+#   – gateway                 : reverse proxy NGINX – point d'entrée unique
+#
+# Démarrage : docker compose up -d --build
+# Arrêt     : docker compose down
+# Arrêt+vol : docker compose down -v (supprime aussi les volumes)
+# Logs      : docker compose logs -f <service-name>
+# Seed dans l'ordre :
+#   docker compose exec campus-service npm run seed
+#   docker compose exec auth-service npm run seed
+#   docker compose exec academic-service npm run seed
+#   docker compose exec planning-service npm run seed
+#   docker compose exec inscription-service npm run seed
+#   docker compose exec payment-service npm run seed
+#   docker compose exec notification-service npm run seed
+#   docker compose exec reporting-service npm run seed
+# ============================================================
+services:
+
+  # ============================================================
+  # AUTH – base de données
+  # ============================================================
+  auth-postgres:
+    image: postgres:16-alpine
+    container_name: novacampus-auth-postgres
+    environment:
+      POSTGRES_DB: novacampus_auth
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+    networks:
+      - novacampus-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d novacampus_auth"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # AUTH – service applicatif
+  # ============================================================
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    container_name: novacampus-auth-service
+    env_file:
+      - ./auth-service/.env
+    environment:
+      # Surcharge DB_HOST pour pointer vers le conteneur PostgreSQL auth
+      DB_HOST: auth-postgres
+    depends_on:
+      auth-postgres:
+        condition: service_healthy
+    networks:
+      - novacampus-network
+    # Dev uniquement : exposer le port pour tester sans gateway
+    # En production : supprimer cette section
+    ports:
+      - "3001:3001"
+
+  # ============================================================
+  # ACADEMIC – base de données
+  # ============================================================
+  academic-postgres:
+    image: postgres:16-alpine
+    container_name: novacampus-academic-postgres
+    environment:
+      POSTGRES_DB: novacampus_academic
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - academic-db-data:/var/lib/postgresql/data
+    networks:
+      - novacampus-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d novacampus_academic"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # ACADEMIC – service applicatif
+  # ============================================================
+  academic-service:
+    build:
+      context: ./academic-service
+      dockerfile: Dockerfile
+    container_name: novacampus-academic-service
+    env_file:
+      - ./academic-service/.env
+    environment:
+      # Surcharge DB_HOST pour pointer vers le conteneur PostgreSQL académique
+      DB_HOST: academic-postgres
+    depends_on:
+      academic-postgres:
+        condition: service_healthy
+    networks:
+      - novacampus-network
+    # Dev uniquement : exposer le port pour tester sans gateway
+    ports:
+      - "3002:3002"
+    volumes:
+      # Persistance des fichiers uploadés (ressources pédagogiques)
+      - academic-uploads:/app/uploads
+
+  # ============================================================
+  # PLANNING – base de données
+  # ============================================================
+  planning-postgres:
+    image: postgres:16-alpine
+    container_name: novacampus-planning-postgres
+    environment:
+      POSTGRES_DB: novacampus_planning
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - planning-db-data:/var/lib/postgresql/data
+    networks:
+      - novacampus-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d novacampus_planning"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # PLANNING – service applicatif
+  # ============================================================
+  planning-service:
+    build:
+      context: ./planning-service
+      dockerfile: Dockerfile
+    container_name: novacampus-planning-service
+    env_file:
+      - ./planning-service/.env
+    environment:
+      # Surcharge DB_HOST pour pointer vers le conteneur PostgreSQL planning
+      DB_HOST: planning-postgres
+    depends_on:
+      planning-postgres:
+        condition: service_healthy
+    networks:
+      - novacampus-network
+    # Dev uniquement : exposer le port pour tester sans gateway
+    ports:
+      - "3003:3003"
+
+  # ============================================================
+  # INSCRIPTION – base de données
+  # ============================================================
+  inscription-postgres:
+    image: postgres:16-alpine
+    container_name: novacampus-inscription-postgres
+    environment:
+      POSTGRES_DB: novacampus_inscription
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - inscription-db-data:/var/lib/postgresql/data
+    networks:
+      - novacampus-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d novacampus_inscription"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # INSCRIPTION – service applicatif
+  # Gère les dossiers d'inscription étudiants et professeurs,
+  # les documents justificatifs et le suivi administratif
+  # ============================================================
+  inscription-service:
+    build:
+      context: ./inscription-service
+      dockerfile: Dockerfile
+    container_name: novacampus-inscription-service
+    env_file:
+      - ./inscription-service/.env
+    environment:
+      # Surcharge DB_HOST pour pointer vers le conteneur PostgreSQL inscription
+      DB_HOST: inscription-postgres
+    depends_on:
+      inscription-postgres:
+        condition: service_healthy
+    networks:
+      - novacampus-network
+    # Dev uniquement : exposer le port pour tester sans gateway
+    ports:
+      - "3004:3004"
+    volumes:
+      # Persistance des documents uploadés (justificatifs, pièces d'identité…)
+      - inscription-uploads:/app/uploads
+
+  # ============================================================
+  # PAYMENT – base de données
+  # ============================================================
+  payment-postgres:
+    image: postgres:16-alpine
+    container_name: novacampus-payment-postgres
+    environment:
+      POSTGRES_DB: novacampus_payment
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - payment-db-data:/var/lib/postgresql/data
+    networks:
+      - novacampus-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d novacampus_payment"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # PAYMENT – service applicatif
+  # Gère les factures, les relances et les KPIs financiers.
+  # Communique avec l'inscription-service pour synchroniser
+  # le statut de paiement des étudiants.
+  # ============================================================
+  payment-service:
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile
+    container_name: novacampus-payment-service
+    env_file:
+      - ./payment-service/.env
+    environment:
+      # Surcharge DB_HOST pour pointer vers le conteneur PostgreSQL payment
+      DB_HOST: payment-postgres
+      # Référence interne vers l'inscription-service pour la sync du paymentStatus
+      INSCRIPTION_SERVICE_URL: http://inscription-service:3004
+    depends_on:
+      payment-postgres:
+        condition: service_healthy
+      # Attendre que l'inscription-service soit démarré avant payment
+      inscription-service:
+        condition: service_started
+    networks:
+      - novacampus-network
+    # Dev uniquement : exposer le port pour tester sans gateway
+    ports:
+      - "3005:3005"
+
+  # ============================================================
+  # NOTIFICATION – base de données
+  # ============================================================
+  notification-postgres:
+    image: postgres:16-alpine
+    container_name: novacampus-notification-postgres
+    environment:
+      POSTGRES_DB: novacampus_notification
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - notification-db-data:/var/lib/postgresql/data
+    networks:
+      - novacampus-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d novacampus_notification"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # NOTIFICATION – service applicatif
+  # Gère l'envoi de notifications push, email et SMS.
+  # Expose également un WebSocket temps réel pour les alertes
+  # instantanées (changement de salle, annulation de cours…).
+  # ============================================================
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    container_name: novacampus-notification-service
+    env_file:
+      - ./notification-service/.env
+    environment:
+      # Surcharge DB_HOST pour pointer vers le conteneur PostgreSQL notification
+      DB_HOST: notification-postgres
+    depends_on:
+      notification-postgres:
+        condition: service_healthy
+    networks:
+      - novacampus-network
+    # Dev uniquement : exposer le port pour tester sans gateway
+    # Le port 3006 expose aussi le WebSocket (ws://localhost:3006)
+    ports:
+      - "3006:3006"
+
+  # ============================================================
+  # CAMPUS – base de données
+  # ============================================================
+  campus-postgres:
+    image: postgres:16-alpine
+    container_name: novacampus-campus-postgres
+    environment:
+      POSTGRES_DB: novacampus_campus
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - campus-db-data:/var/lib/postgresql/data
+    networks:
+      - novacampus-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d novacampus_campus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # CAMPUS – service applicatif
+  # Gère les campus, les années académiques, la configuration
+  # globale et les logs d'audit de l'ensemble du groupe.
+  # ============================================================
+  campus-service:
+    build:
+      context: ./campus-service
+      dockerfile: Dockerfile
+    container_name: novacampus-campus-service
+    env_file:
+      - ./campus-service/.env
+    environment:
+      # Surcharge DB_HOST pour pointer vers le conteneur PostgreSQL campus
+      DB_HOST: campus-postgres
+    depends_on:
+      campus-postgres:
+        condition: service_healthy
+    networks:
+      - novacampus-network
+    # Dev uniquement : exposer le port pour tester sans gateway
+    ports:
+      - "3007:3007"
+
+  # ============================================================
+  # REPORTING – base de données
+  # ============================================================
+  reporting-postgres:
+    image: postgres:16-alpine
+    container_name: novacampus-reporting-postgres
+    environment:
+      POSTGRES_DB: novacampus_reporting
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - reporting-db-data:/var/lib/postgresql/data
+    networks:
+      - novacampus-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d novacampus_reporting"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # REPORTING – service applicatif
+  # Agrège les données de tous les services pour produire les
+  # KPIs consolidés, les dashboards direction et les alertes IA.
+  # Communique en lecture seule avec les autres services via HTTP.
+  # ============================================================
+  reporting-service:
+    build:
+      context: ./reporting-service
+      dockerfile: Dockerfile
+    container_name: novacampus-reporting-service
+    env_file:
+      - ./reporting-service/.env
+    environment:
+      # Surcharge DB_HOST pour pointer vers le conteneur PostgreSQL reporting
+      DB_HOST: reporting-postgres
+      # URLs internes des services sources de données
+      ACADEMIC_SERVICE_URL: http://academic-service:3002
+      PAYMENT_SERVICE_URL: http://payment-service:3005
+      INSCRIPTION_SERVICE_URL: http://inscription-service:3004
+      PLANNING_SERVICE_URL: http://planning-service:3003
+      CAMPUS_SERVICE_URL: http://campus-service:3007
+      NOTIFICATION_SERVICE_URL: http://notification-service:3006
+    depends_on:
+      reporting-postgres:
+        condition: service_healthy
+    networks:
+      - novacampus-network
+    # Dev uniquement : exposer le port pour tester sans gateway
+    ports:
+      - "3008:3008"
+    volumes:
+      # Persistance des exports générés (PDF, CSV, Excel…)
+      - reporting-exports:/app/exports
+
+  # ============================================================
+  # GATEWAY NGINX
+  # Point d'entrée unique exposé sur le port 8080
+  # Valide les JWT via l'auth-service avant chaque route protégée
+  # Supprime le default.conf pour éviter les conflits de port
+  # ============================================================
+  gateway:
+    image: nginx:1.25-alpine
+    container_name: novacampus-gateway
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+    # Supprime le default.conf qui interfère avec notre config personnalisée
+    command: >
+      sh -c "rm -f /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
+    ports:
+      # Port d'accès externe : http://localhost:8080
+      - "8080:80"
+    networks:
+      - novacampus-network
+    depends_on:
+      - auth-service
+      - academic-service
+      - planning-service
+      - inscription-service
+      - payment-service
+      - notification-service
+      - campus-service
+      - reporting-service
+
+# ============================================================
+# Volumes persistants
+# Chaque service dispose de son propre volume isolé
+# ============================================================
+volumes:
+  auth-db-data:
+    name: novacampus_auth_db_data
+  academic-db-data:
+    name: novacampus_academic_db_data
+  academic-uploads:
+    name: novacampus_academic_uploads
+  planning-db-data:
+    name: novacampus_planning_db_data
+  inscription-db-data:
+    name: novacampus_inscription_db_data
+  inscription-uploads:
+    name: novacampus_inscription_uploads
+  payment-db-data:
+    name: novacampus_payment_db_data
+  notification-db-data:
+    name: novacampus_notification_db_data
+  campus-db-data:
+    name: novacampus_campus_db_data
+  reporting-db-data:
+    name: novacampus_reporting_db_data
+  reporting-exports:
+    name: novacampus_reporting_exports
+
+# ============================================================
+# Réseau interne partagé entre tous les services
+# Les conteneurs se contactent par leur nom de service
+#   ex : http://auth-service:3001           depuis NGINX
+#        http://academic-service:3002       depuis NGINX
+#        http://planning-service:3003       depuis NGINX
+#        http://inscription-service:3004    depuis NGINX
+#        http://payment-service:3005        depuis NGINX
+#        http://notification-service:3006   depuis NGINX
+#        http://campus-service:3007         depuis NGINX
+#        http://reporting-service:3008      depuis NGINX
+# ============================================================
+networks:
+  novacampus-network:
+    driver: bridge
+    name: novacampus_network

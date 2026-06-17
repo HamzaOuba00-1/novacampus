@@ -1,0 +1,61 @@
+# ============================================================
+# .gitignore racine — Novacampus Alliance ERP
+# Monorepo : novacampus-api/ (8 microservices) + novacampus-frontend/
+# ============================================================
+
+# ── Dépendances ──────────────────────────────────────────────
+node_modules/
+**/node_modules/
+
+# ── Builds TypeScript / Next.js ─────────────────────────────
+dist/
+**/dist/
+.next/
+**/.next/
+out/
+build/
+
+# ── Variables d'environnement (secrets) ──────────────────────
+# Chaque service a son .env avec JWT_SECRET, DB credentials, etc.
+# Ne JAMAIS commiter ces fichiers — voir .env.example à la place
+.env
+.env.local
+.env.*.local
+**/.env
+
+# ── Archives zip de sauvegarde (src.zip présents dans le projet) ──
+# Ces zips sont des doublons du code source déjà versionné
+*.zip
+**/src.zip
+
+# ── Uploads et fichiers générés à l'exécution ────────────────
+**/uploads/*
+!**/uploads/.gitkeep
+**/exports/*
+!**/exports/.gitkeep
+
+# ── Logs ──────────────────────────────────────────────────────
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# ── Next.js spécifique ───────────────────────────────────────
+next-env.d.ts.bak
+
+# ── Éditeurs / OS ─────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# ── TypeScript build info ────────────────────────────────────
+*.tsbuildinfo
+
+# ── Tests / couverture ────────────────────────────────────────
+coverage/
+.nyc_output/
+
+# ── Docker volumes locaux (si montés en bind plutôt qu'en named volume) ──
+postgres-data/
