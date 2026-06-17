@@ -18,10 +18,10 @@ build/
 # ── Variables d'environnement (secrets) ──────────────────────
 # Chaque service a son .env avec JWT_SECRET, DB credentials, etc.
 # Ne JAMAIS commiter ces fichiers — voir .env.example à la place
-.env
-.env.local
-.env.*.local
-**/.env
+#.env
+#.env.local
+#.env.*.local
+#**/.env
 
 # ── Archives zip de sauvegarde (src.zip présents dans le projet) ──
 # Ces zips sont des doublons du code source déjà versionné
