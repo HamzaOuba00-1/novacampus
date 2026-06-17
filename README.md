@@ -66,32 +66,6 @@ git clone https://github.com/HamzaOuba00-1/novacampus.git
 cd novacampus
 ```
 
-### 2. Créer les fichiers `.env` de chaque microservice
-
-Chaque service backend a besoin d'un fichier `.env` (ignoré par Git pour des raisons de sécurité). Des modèles `.env.example` sont fournis — copiez-les :
-
-```bash
-cd novacampus-api
-
-cp auth-service/.env.example auth-service/.env
-cp academic-service/.env.example academic-service/.env
-cp planning-service/.env.example planning-service/.env
-cp inscription-service/.env.example inscription-service/.env
-cp payment-service/.env.example payment-service/.env
-cp notification-service/.env.example notification-service/.env
-cp campus-service/.env.example campus-service/.env
-cp reporting-service/.env.example reporting-service/.env
-```
-
-> **Important** : la valeur `JWT_SECRET` doit être **strictement identique** dans les 8 fichiers `.env` (les services se font confiance via le même secret). Les fichiers `.env.example` ont déjà la même valeur par défaut — ne modifiez `JWT_SECRET` que si vous le changez partout en même temps.
-
-Pour générer un secret aléatoire propre (recommandé même en dev) :
-
-```bash
-openssl rand -base64 32
-```
-
-Copiez la valeur générée dans le champ `JWT_SECRET=` des 8 fichiers `.env`.
 
 ### 3. Démarrer tous les services
 
@@ -143,8 +117,6 @@ Dans un **second terminal**, à la racine du repo :
 ```bash
 cd novacampus-frontend
 
-# Variables d'environnement
-cp .env.local.example .env.local
 
 # Installation des dépendances
 npm install
